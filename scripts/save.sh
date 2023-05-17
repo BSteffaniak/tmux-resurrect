@@ -107,9 +107,12 @@ _save_command_strategy_file() {
 
 pane_full_command() {
 	local pane_pid="$1"
+	local session_name="$2"
+	local window_number="$3"
+	local pane_index="$4"
 	local strategy_file="$(_save_command_strategy_file)"
 	# execute strategy script to get pane full command
-	$strategy_file "$pane_pid"
+	$strategy_file "$pane_pid" "$session_name" "$window_number" "$pane_index"
 }
 
 number_nonempty_lines_on_screen() {
@@ -194,7 +197,7 @@ dump_panes() {
 			if is_session_grouped "$session_name"; then
 				continue
 			fi
-			full_command="$(pane_full_command $pane_pid)"
+			full_command="$(pane_full_command $pane_pid "$session_name" $window_number $pane_index)"
 			dir=$(echo $dir | sed 's/ /\\ /') # escape all spaces in directory path
 			echo "${line_type}${d}${session_name}${d}${window_number}${d}${window_active}${d}${window_flags}${d}${pane_index}${d}${pane_title}${d}${dir}${d}${pane_active}${d}${pane_command}${d}:${full_command}"
 		done

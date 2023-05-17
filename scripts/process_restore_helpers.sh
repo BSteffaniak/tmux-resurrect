@@ -57,6 +57,8 @@ _process_should_be_restored() {
 		return 0
 	elif _process_on_the_restore_list "$pane_full_command"; then
 		return 0
+  elif [[ "$(get_tmux_option "$save_command_strategy_option" "$default_save_command_strategy")" == "bash_history" ]]; then
+    return 0
 	else
 		return 1
 	fi
