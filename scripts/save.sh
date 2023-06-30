@@ -37,6 +37,10 @@ pane_format() {
 	format+="${delimiter}"
 	format+=":#{window_flags}"
 	format+="${delimiter}"
+	format+=":#{window_name}"
+	format+="${delimiter}"
+	format+="#{pane_id}"
+	format+="${delimiter}"
 	format+="#{pane_index}"
 	format+="${delimiter}"
 	format+="#{pane_title}"
@@ -95,13 +99,13 @@ toggle_window_zoom() {
 }
 
 _save_command_strategy_file() {
-	local save_command_strategy="$(get_tmux_option "$save_command_strategy_option" "$default_save_command_strategy")"
+	local save_command_strategy
+    save_command_strategy="$(get_tmux_option "$save_command_strategy_option" "$default_save_command_strategy")"
 	local strategy_file="$CURRENT_DIR/../save_command_strategies/${save_command_strategy}.sh"
-	local default_strategy_file="$CURRENT_DIR/../save_command_strategies/${default_save_command_strategy}.sh"
 	if [ -e "$strategy_file" ]; then # strategy file exists?
 		echo "$strategy_file"
 	else
-		echo "$default_strategy_file"
+        echo "$CURRENT_DIR/../save_command_strategies/${default_save_command_strategy}.sh"
 	fi
 }
 
@@ -110,9 +114,13 @@ pane_full_command() {
 	local session_name="$2"
 	local window_number="$3"
 	local pane_index="$4"
-	local strategy_file="$(_save_command_strategy_file)"
+	local window_name="$5"
+	local pane_id="$6"
+	local strategy_file
+    window_name="$(remove_first_char "$window_name")"
+    strategy_file="$(_save_command_strategy_file)"
 	# execute strategy script to get pane full command
-	$strategy_file "$pane_pid" "$session_name" "$window_number" "$pane_index"
+	$strategy_file "$pane_pid" "$session_name" "$window_number" "$pane_index" "$window_name" "$pane_id"
 }
 
 number_nonempty_lines_on_screen() {
@@ -181,7 +189,8 @@ dump_grouped_sessions() {
 }
 
 fetch_and_dump_grouped_sessions(){
-	local grouped_sessions_dump="$(dump_grouped_sessions)"
+	local grouped_sessions_dump
+    grouped_sessions_dump="$(dump_grouped_sessions)"
 	get_grouped_sessions "$grouped_sessions_dump"
 	if [ -n "$grouped_sessions_dump" ]; then
 		echo "$grouped_sessions_dump"
@@ -192,14 +201,14 @@ fetch_and_dump_grouped_sessions(){
 dump_panes() {
 	local full_command
 	dump_panes_raw |
-		while IFS=$d read line_type session_name window_number window_active window_flags pane_index pane_title dir pane_active pane_command pane_pid history_size; do
+		while IFS=$d read line_type session_name window_number window_active window_flags window_name pane_id pane_index pane_title dir pane_active pane_command pane_pid history_size; do
 			# not saving panes from grouped sessions
 			if is_session_grouped "$session_name"; then
 				continue
 			fi
-			full_command="$(pane_full_command $pane_pid "$session_name" $window_number $pane_index)"
+			full_command="$(pane_full_command $pane_pid "$session_name" $window_number $pane_index "$window_name" "$pane_id")"
 			dir=$(echo $dir | sed 's/ /\\ /') # escape all spaces in directory path
-			echo "${line_type}${d}${session_name}${d}${window_number}${d}${window_active}${d}${window_flags}${d}${pane_index}${d}${pane_title}${d}${dir}${d}${pane_active}${d}${pane_command}${d}:${full_command}"
+			echo "${line_type}${d}${session_name}${d}${window_number}${d}${window_active}${d}${window_flags}${d}${window_name}${d}${pane_id}${d}${pane_index}${d}${pane_title}${d}${dir}${d}${pane_active}${d}${pane_command}${d}:${full_command}"
 		done
 }
 
@@ -224,8 +233,8 @@ dump_state() {
 dump_pane_contents() {
 	local pane_contents_area="$(get_tmux_option "$pane_contents_area_option" "$default_pane_contents_area")"
 	dump_panes_raw |
-		while IFS=$d read line_type session_name window_number window_active window_flags pane_index pane_title dir pane_active pane_command pane_pid history_size; do
-			capture_pane_contents "${session_name}:${window_number}.${pane_index}" "$history_size" "$pane_contents_area"
+		while IFS=$d read line_type session_name window_number window_active window_flags window_name pane_id pane_index pane_title dir pane_active pane_command pane_pid history_size; do
+			capture_pane_contents "${session_name}:${window_number}.${pane_index}" "$history_size" "$pane_contents_area" "$pane_id"
 		done
 }
 

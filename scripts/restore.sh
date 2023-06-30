@@ -125,16 +125,17 @@ pane_creation_command() {
 
 new_window() {
 	local session_name="$1"
-	local window_number="$2"
-	local dir="$3"
-	local pane_index="$4"
+	local window_name="$2"
+	local window_number="$3"
+	local dir="$4"
+	local pane_index="$5"
 	local pane_id="${session_name}:${window_number}.${pane_index}"
 	dir="${dir/#\~/$HOME}"
 	if is_restoring_pane_contents && pane_contents_file_exists "$pane_id"; then
 		local pane_creation_command="$(pane_creation_command "$session_name" "$window_number" "$pane_index")"
-		tmux new-window -d -t "${session_name}:${window_number}" -c "$dir" "$pane_creation_command"
+		tmux new-window -d -n "$window_name" -t "${session_name}:${window_number}" -c "$dir" "$pane_creation_command"
 	else
-		tmux new-window -d -t "${session_name}:${window_number}" -c "$dir"
+		tmux new-window -d -n "$window_name" -t "${session_name}:${window_number}" -c "$dir"
 	fi
 }
 
@@ -145,13 +146,15 @@ new_session() {
 	local pane_index="$4"
 	local pane_id="${session_name}:${window_number}.${pane_index}"
 	if is_restoring_pane_contents && pane_contents_file_exists "$pane_id"; then
-		local pane_creation_command="$(pane_creation_command "$session_name" "$window_number" "$pane_index")"
+		local pane_creation_command
+        pane_creation_command="$(pane_creation_command "$session_name" "$window_number" "$pane_index")"
 		TMUX="" tmux -S "$(tmux_socket)" new-session -d -s "$session_name" -c "$dir" "$pane_creation_command"
 	else
 		TMUX="" tmux -S "$(tmux_socket)" new-session -d -s "$session_name" -c "$dir"
 	fi
 	# change first window number if necessary
-	local created_window_num="$(first_window_num)"
+	local created_window_num
+	created_window_num="$(first_window_num)"
 	if [ $created_window_num -ne $window_number ]; then
 		tmux move-window -s "${session_name}:${created_window_num}" -t "${session_name}:${window_number}"
 	fi
@@ -175,9 +178,10 @@ new_pane() {
 
 restore_pane() {
 	local pane="$1"
-	while IFS=$d read line_type session_name window_number window_active window_flags pane_index pane_title dir pane_active pane_command pane_full_command; do
+	while IFS=$d read line_type session_name window_number window_active window_flags window_name pane_id pane_index pane_title dir pane_active pane_command pane_full_command; do
 		dir="$(remove_first_char "$dir")"
 		pane_full_command="$(remove_first_char "$pane_full_command")"
+        window_name="$(remove_first_char "$window_name")"
 		if [ "$session_name" == "0" ]; then
 			restored_session_0_true
 		fi
@@ -196,7 +200,7 @@ restore_pane() {
 		elif window_exists "$session_name" "$window_number"; then
 			new_pane "$session_name" "$window_number" "$dir" "$pane_index"
 		elif session_exists "$session_name"; then
-			new_window "$session_name" "$window_number" "$dir" "$pane_index"
+			new_window "$session_name" "$window_name" "$window_number" "$dir" "$pane_index"
 		else
 			new_session "$session_name" "$window_number" "$dir" "$pane_index"
 		fi
@@ -306,7 +310,7 @@ restore_window_properties() {
 restore_all_pane_processes() {
 	if restore_pane_processes_enabled; then
 		local pane_full_command
-		awk 'BEGIN { FS="\t"; OFS="\t" } /^pane/ && $11 !~ "^:$" { print $2, $3, $6, $8, $11; }' $(last_resurrect_file) |
+		awk 'BEGIN { FS="\t"; OFS="\t" } /^pane/ && $13 !~ "^:$" { print $2, $3, $8, $10, $13; }' $(last_resurrect_file) |
 			while IFS=$d read -r session_name window_number pane_index dir pane_full_command; do
 				dir="$(remove_first_char "$dir")"
 				pane_full_command="$(remove_first_char "$pane_full_command")"
@@ -316,7 +320,7 @@ restore_all_pane_processes() {
 }
 
 restore_active_pane_for_each_window() {
-	awk 'BEGIN { FS="\t"; OFS="\t" } /^pane/ && $9 == 1 { print $2, $3, $6; }' $(last_resurrect_file) |
+	awk 'BEGIN { FS="\t"; OFS="\t" } /^pane/ && $11 == 1 { print $2, $3, $8; }' $(last_resurrect_file) |
 		while IFS=$d read session_name window_number active_pane; do
 			tmux switch-client -t "${session_name}:${window_number}"
 			tmux select-pane -t "$active_pane"
@@ -324,7 +328,7 @@ restore_active_pane_for_each_window() {
 }
 
 restore_zoomed_windows() {
-	awk 'BEGIN { FS="\t"; OFS="\t" } /^pane/ && $5 ~ /Z/ && $9 == 1 { print $2, $3; }' $(last_resurrect_file) |
+	awk 'BEGIN { FS="\t"; OFS="\t" } /^pane/ && $5 ~ /Z/ && $10 == 1 { print $2, $3; }' $(last_resurrect_file) |
 		while IFS=$d read session_name window_number; do
 			tmux resize-pane -t "${session_name}:${window_number}" -Z
 		done

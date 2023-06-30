@@ -1,45 +1,32 @@
 #!/usr/bin/env bash
 
-CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source ~/.rc-files/history_helpers.sh
 
-PANE_PID="$1"
 SESSION_NAME="$2"
 WINDOW_NUMBER="$3"
 PANE_INDEX="$4"
-
-exit_safely_if_empty_ppid() {
-	if [ -z "$PANE_PID" ]; then
-		exit 0
-	fi
-}
+WINDOW_NAME="$5"
+PANE_ID="$6"
 
 full_command() {
-	RUNNING="$(ps -ao "ppid,args" |
-		sed "s/^ *//" |
-		grep "^${PANE_PID}" |
-    cut -d' ' -f2-)"
+    local file
+    file="$(getCmdFile "$PANE_ID" "$SESSION_NAME" "$WINDOW_NAME" "$WINDOW_NUMBER" "$PANE_INDEX")"
 
-  if [ -z "$RUNNING" ]; then
-    exit 0
-  fi
+    if [ ! -f "$file" ]; then
+        exit 0
+    fi
 
-  FILE="$HOME/.bash_history.d/bash_cmd_tmux_${SESSION_NAME}:${WINDOW_NUMBER}:${PANE_INDEX}"
+    local cmd
+    cmd="$(tail -n 1 "$file")"
 
-  if [ ! -f "$FILE" ]; then
-    exit 0
-  fi
+    if [ -z "$cmd" ]; then
+        exit 0
+    fi
 
-  CMD="$(tail -n 1 "$FILE")"
-
-  if [ -z "$CMD" ]; then
-    exit 0
-  fi
-
-  echo "$CMD"
+    echo "$cmd"
 }
 
 main() {
-	exit_safely_if_empty_ppid
-	full_command
+    full_command
 }
 main
