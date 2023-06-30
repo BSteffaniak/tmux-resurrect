@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
-source ~/.rc-files/history_helpers.sh
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PLUGINS_DIR="$(cd "$CURRENT_DIR/../.." && pwd)"
+
+source "$PLUGINS_DIR/tmux-bash-history/scripts/helpers/history_helpers.sh"
 
 SESSION_NAME="$2"
 WINDOW_NUMBER="$3"
